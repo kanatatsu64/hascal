@@ -1,5 +1,6 @@
 module Types (
     ValueType,
+    TargetType,
     eof,
     add,
     sub,
@@ -7,9 +8,10 @@ module Types (
     div
 ) where
 
-import Prelude hiding (div)
+import Prelude hiding ( div )
 
 type ValueType = Float
+type TargetType = ValueType
 
 eof :: Char
 eof = '\0'

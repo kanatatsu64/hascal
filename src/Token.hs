@@ -16,7 +16,7 @@ import Control.Monad.Except
 import Data.Char (isLetter, isDigit)
 import Text.Read (readMaybe)
 
-import Types (ValueType)
+import Types (ValueType, TargetType)
 import qualified Types
 import PipesClass
 import Crawler
@@ -42,9 +42,11 @@ newtype Tokenizer m a = Tokenizer (StateT (CrawlState Char) (Pipe Char Token m) 
         MonadCrawl Char
     )
 
-tokenize :: MonadError String m => Pipe Char Token m ()
-tokenize = let Tokenizer s = tokenizer
-           in evalStateT s $ CrawlState [] []
+tokenize :: MonadError String m => Pipe Char Token m TargetType
+tokenize = do
+    let Tokenizer s = tokenizer
+    evalStateT s $ CrawlState [] []
+    throwError "unexpected end of stream"
 
 tokenizer :: MonadError String m => Tokenizer m ()
 tokenizer = do
@@ -52,6 +54,7 @@ tokenizer = do
     if isWhiteSpace c
       then skipper
       else return ()
+    c <- read
     case () of
       _ | isDigit c -> valueTokenizer
         | isLetter c -> labelTokenizer

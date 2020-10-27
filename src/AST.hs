@@ -8,17 +8,17 @@ module AST (
     build
 ) where
 
-import Prelude hiding (read)
-import Pipes (Consumer)
+import Prelude hiding ( read )
+import Pipes ( Pipe, yield )
 import Control.Monad.State
 import Control.Monad.Except
 
-import Types (ValueType)
+import Types ( ValueType, TargetType )
 import qualified Types
 import Crawler ( CrawlState(..), MonadCrawl(..) )
 import PipesClass ( MonadConsumer )
-import Token (Token)
-import qualified Token (Token(..), OpType(..), PrType(..))
+import Token ( Token )
+import qualified Token ( Token(..), OpType(..), PrType(..) )
 
 data TermAttr = Label String | Value ValueType deriving Show
 data NodeAttr = Operator (ValueType -> ValueType -> ValueType) | Assigner | Sequence
@@ -29,7 +29,7 @@ instance Show NodeAttr where
     show Assigner = "Assigner"
     show Sequence = "Sequence"
 
-newtype Builder m a = Builder (StateT (CrawlState Token) (Consumer Token m) a)
+newtype Builder m a = Builder (StateT (CrawlState Token) (Pipe Token AST m) a)
     deriving (
         Functor,
         Applicative,
@@ -40,11 +40,12 @@ newtype Builder m a = Builder (StateT (CrawlState Token) (Consumer Token m) a)
         MonadCrawl Token
     )
 
-build :: MonadError String m => Consumer Token m AST
+build :: MonadError String m => Pipe Token AST m TargetType
 build = do
     let Builder s = builder
     a <- evalStateT s $ CrawlState [] []
-    return a
+    yield a
+    throwError $ "unexpected end of stream"
 
 notExpectedMsg :: Token -> Token -> String
 notExpectedMsg e a = "expected " <> show e <> " but given " <> show a

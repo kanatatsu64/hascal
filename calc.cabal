@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 448a3d6a1438dcc6dff7a037d4a81b5c4fed7b485a29e12895a5ca6f4f8fe63f
+-- hash: 3e62f9a5863931cfa0ee5309ee01d194731dde80fe5449c1b23e6b1b38c77d10
 
 name:           calc
 version:        0.1.0.0
@@ -31,6 +31,7 @@ library
       Crawler
       Eval
       PipesClass
+      Source
       Token
       Types
   other-modules:

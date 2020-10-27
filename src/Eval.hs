@@ -2,30 +2,36 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Eval (
+    Table(..),
     eval
 ) where
 
 import Control.Monad.Except
 import Control.Monad.State
+import Pipes ( Consumer, await )
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-import Types (ValueType)
+import Types (ValueType, TargetType)
+import PipesClass ( MonadConsumer )
 import AST
 
 type Table = Map String ValueType
-newtype Eval m a = Eval (StateT Table m a)
+newtype Eval m a = Eval (StateT Table (Consumer AST m) a)
     deriving (
         Functor,
         Applicative,
         Monad,
         MonadState Table,
-        MonadError e
+        MonadError e,
+        MonadConsumer AST
     )
 
-eval :: MonadError String m => Table -> AST -> m ValueType
-eval t a = let Eval s = evaluator a
-           in evalStateT s t
+eval :: MonadError String m => Table -> Consumer AST m TargetType
+eval t = do
+    a <- await
+    let Eval s = evaluator a
+    evalStateT s t
 
 evaluator :: MonadError String m => AST -> Eval m ValueType
 evaluator n@(Node _ _ _) = nodeEvaluator n

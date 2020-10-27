@@ -1,3 +1,5 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Main where
 
 {-
@@ -14,5 +16,31 @@ module Main where
     222
 -}
 
+import Control.Monad.Except
+import qualified Data.Map as Map
+import Pipes ( (>->), runEffect )
+
+import Source ( fromStdIO )
+import Token ( tokenize )
+import AST ( build )
+import Eval ( eval )
+
+newtype MainType a = MainType (ExceptT String IO a)
+    deriving (
+        Functor,
+        Applicative,
+        Monad,
+        MonadIO,
+        MonadError String
+    )
+
+table = Map.empty
+
 main :: IO ()
-main = return ()
+main = do
+    r <- runExceptT $ do
+        let p = fromStdIO >-> tokenize >-> build >-> eval table
+        runEffect p
+    case r of
+        Right v -> print v
+        Left e -> print e
