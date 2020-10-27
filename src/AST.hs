@@ -16,9 +16,14 @@ import PipesClass
 import Token (Token)
 import qualified Token (Token(..), OpType(..), PrType(..))
 
-data TermAttr = Label String | Value Float
+data TermAttr = Label String | Value Float deriving Show
 data NodeAttr = Operator (Float -> Float -> Float) | Assigner | Sequence
-data AST = Node NodeAttr AST AST | Term TermAttr
+data AST = Node NodeAttr AST AST | Term TermAttr deriving Show
+
+instance Show NodeAttr where
+    show (Operator _) = "Operator"
+    show Assigner = "Assigner"
+    show Sequence = "Sequence"
 
 newtype Builder m a = Builder (StateT [Token] (Consumer Token m) a)
     deriving (
