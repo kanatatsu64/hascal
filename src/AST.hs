@@ -45,7 +45,7 @@ build = do
     let Builder s = builder
     a <- evalStateT s $ CrawlState [] []
     yield a
-    throwError $ "unexpected end of stream"
+    throwError $ "unexpected end of stream @ AST"
 
 notExpectedMsg :: Token -> Token -> String
 notExpectedMsg e a = "expected " <> show e <> " but given " <> show a
@@ -75,6 +75,7 @@ cmdBuilder = do
                 _ -> do
                     rh <- cmdBuilder
                     return $ Node Sequence lh rh
+        _ -> return lh
 
 expr0Builder :: MonadError String m => Builder m AST
 expr0Builder = do

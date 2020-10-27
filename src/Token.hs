@@ -46,7 +46,7 @@ tokenize :: MonadError String m => Pipe Char Token m TargetType
 tokenize = do
     let Tokenizer s = tokenizer
     evalStateT s $ CrawlState [] []
-    throwError "unexpected end of stream"
+    throwError "unexpected end of stream @ Token"
 
 tokenizer :: MonadError String m => Tokenizer m ()
 tokenizer = do

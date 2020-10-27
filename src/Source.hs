@@ -16,11 +16,11 @@ fromString :: MonadError String m => String -> Producer Char m TargetType
 fromString s = do
     Pipes.each s
     yield Types.eof
-    throwError "unexpected end of stream"
+    throwError "unexpected end of stream @ Source"
 
 fromStdIO :: (MonadError String m, MonadIO m) => Producer Char m TargetType
 fromStdIO = do
     s <- liftIO $ getLine
     Pipes.each s
     yield Types.eof
-    throwError "unexpected end of stream"
+    throwError "unexpected end of stream @ Source"
