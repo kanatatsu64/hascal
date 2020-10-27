@@ -1,6 +1,13 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleContexts #-}
 
+module AST (
+    AST(..),
+    TermAttr(..),
+    NodeAttr(..),
+    build
+) where
+
 import Pipes (Consumer)
 import Control.Monad.State
 import Control.Monad.Except
@@ -44,8 +51,16 @@ next = do
 flush :: Monad m => Builder m ()
 flush = put []
 
+notExpectedMsg :: Token -> Token -> String
+notExpectedMsg e a = "expected " <> show e <> " but given " <> show a
+
 builder :: MonadError String m => Builder m AST
-builder = cmdBuilder
+builder = do
+    a <- cmdBuilder
+    x <- next
+    case x of
+        Token.EOF -> return a
+        _ -> throwError $ notExpectedMsg Token.EOF x
 
 cmdBuilder :: MonadError String m => Builder m AST
 cmdBuilder = do
@@ -62,8 +77,6 @@ cmdBuilder = do
                 _ -> do
                     rh <- cmdBuilder
                     return $ Node Sequence lh rh
-        Token.EOF -> throwError $ "unexpected end of program"
-        _ -> throwError $ "illegal token: " <> show x
 
 expr0Builder :: MonadError String m => Builder m AST
 expr0Builder = do
@@ -123,7 +136,7 @@ expr3Builder = do
                 Token.Parentheses Token.Close -> do
                     flush
                     return mh
-                _ -> throwError $ "expected ')' but given: " <> show y
+                _ -> throwError $ notExpectedMsg (Token.Parentheses Token.Close) y
         Token.Label l -> do
             flush
             return $ Term (Label l)
