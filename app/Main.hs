@@ -7,8 +7,11 @@ module Main where
     Expr2 := Expr3 * Expr2 | Expr3 / Expr2 | Expr3
     Expr3 := (Cmd) | <Label> | <Value>
 
-    > var = 1 + (2 + 3) * 4 ; var + 1.2
-    22.2
+    <Label> :: String (a-z A-Z)
+    <Value> :: Float
+
+    > var = 10 + (20 + 30) * 4 ; var + 12
+    222
 -}
 
 main :: IO ()

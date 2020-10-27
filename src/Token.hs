@@ -9,13 +9,17 @@ module Token (
   tokenize
 ) where
 
+import Prelude hiding (init, read)
 import Pipes (Pipe)
 import Control.Monad.State
 import Control.Monad.Except
 import Data.Char (isLetter, isDigit)
 import Text.Read (readMaybe)
 
+import Types (ValueType)
+import qualified Types
 import PipesClass
+import Crawler
 
 data OpType = Add | Sub | Mul | Div deriving Show
 
@@ -23,28 +27,28 @@ data PrType = Open | Close deriving Show
 
 data Token = Label String | Operator OpType
            | Assigner | Separator | Parentheses PrType
-           | Value Float | EOF
+           | Value ValueType | EOF
     deriving Show
 
-newtype Tokenizer m a = Tokenizer (StateT [Char] (Pipe Char Token m) a)
+newtype Tokenizer m a = Tokenizer (StateT (CrawlState Char) (Pipe Char Token m) a)
     deriving (
         Functor,
         Applicative,
         Monad,
-        MonadState [Char],
+        MonadState (CrawlState Char),
         MonadError e,
         MonadProducer Token,
-        MonadConsumer Char
+        MonadConsumer Char,
+        MonadCrawl Char
     )
 
 tokenize :: MonadError String m => Pipe Char Token m ()
 tokenize = let Tokenizer s = tokenizer
-           in evalStateT s []
+           in evalStateT s $ CrawlState [] []
 
 tokenizer :: MonadError String m => Tokenizer m ()
 tokenizer = do
-    c <- await
-    modify (c:)
+    c <- read
     if isWhiteSpace c
       then skipper
       else return ()
@@ -57,73 +61,79 @@ tokenizer = do
         | isSeparator c -> separatorTokenizer
         | isEOF c -> eofTokenizer
         | otherwise -> throwError $ "invalid charactor: " <> show c
+    if isEOF c
+      then return ()
+      else tokenizer
 
 skipper :: MonadError String m => Tokenizer m ()
 skipper = do
-    c <- loop
-    str <- get
+    loop
+    str <- flush
     if validate str
       then return ()
       else throwError $ "invalid white spaces: " <> str
-    put [c]
-  where loop :: Monad m => Tokenizer m Char
+  where loop :: Monad m => Tokenizer m ()
         loop = do
-          c <- await
+          c <- read
           if isWhiteSpace c
             then do
-              modify (c:)
+              store
               loop
-            else return c
+            else 
+              return ()
         validate :: [Char] -> Bool
         validate cs = foldl (&&) True $ isWhiteSpace <$> cs
 
 valueTokenizer :: MonadError String m => Tokenizer m ()
 valueTokenizer = do
-    c <- loop
-    str <- get
-    let val :: Maybe Float
+    loop
+    str <- flush
+    let val :: Maybe ValueType
         val = readMaybe str
     case val of
       Just x -> yield $ Value x
       Nothing -> throwError $ "invalid value: " <> str
-    put [c]
-  where loop :: Monad m => Tokenizer m Char
+  where loop :: Monad m => Tokenizer m ()
         loop = do
-          c <- await
+          c <- read
           if isDigit c
             then do
-              modify (c:)
+              store
               loop
-            else return c
+            else return ()
 
 labelTokenizer :: MonadError String m => Tokenizer m ()
 labelTokenizer = do
-    c <- loop
-    str <- get
-    put [c]
+    loop
+    str <- flush
     if validate str
       then yield $ Label str
       else throwError $ "invalid label: " <> str
-  where loop :: Monad m => Tokenizer m Char
+  where loop :: Monad m => Tokenizer m ()
         loop = do
-          c <- await
+          c <- read
           if isLetter c
             then do
-              modify (c:)
+              store
               loop
-            else return c
+            else return ()
         validate :: [Char] -> Bool
         validate cs = foldl (&&) True $ isLetter <$> cs
 
 operatorTokenizer :: MonadError String m => Tokenizer m ()
 operatorTokenizer = do
-    str <- get
+    c <- read
+    if isOperator c
+      then
+        store
+      else
+        return ()
+    str <- flush
     if validate str
       then case toOpType str of
         Just x -> yield $ Operator x
         Nothing -> throwError $ "invalid operator: " <> str
       else throwError $ "invalid operator: " <> str
-    put []
   where validate :: [Char] -> Bool
         validate (c:[]) = isOperator c
         validate _ = False
@@ -136,35 +146,44 @@ operatorTokenizer = do
 
 assignerTokenizer :: MonadError String m => Tokenizer m ()
 assignerTokenizer = do
-    str <- get
+    c <- read
+    if isAssigner c
+      then store
+      else return ()
+    str <- flush
     if validate str
       then yield Assigner
       else throwError $ "invalid assigner: " <> str
-    put []
   where validate :: [Char] -> Bool
         validate ('=':[]) = True
         validate _ = False
 
 separatorTokenizer :: MonadError String m => Tokenizer m ()
 separatorTokenizer = do
-    str <- get
+    c <- read
+    if isSeparator c
+      then store
+      else return ()
+    str <- flush
     if validate str
       then yield Separator
       else throwError $ "invalid separator: " <> str
-    put []
   where validate :: [Char] -> Bool
         validate (';':[]) = True
         validate _ = False
 
 parenthesesTokenizer :: MonadError String m => Tokenizer m ()
 parenthesesTokenizer = do
-    str <- get
+    c <- read
+    if isParentheses c
+      then store
+      else return ()
+    str <- flush
     if validate str
       then case toPrType str of
         Just x -> yield $ Parentheses x
         Nothing -> throwError $ "invalid parentheses: " <> str
       else throwError $ "invalid parentheses: " <> str
-    put []
   where validate :: [Char] -> Bool
         validate (c:[]) = case c of
           '(' -> True
@@ -178,13 +197,16 @@ parenthesesTokenizer = do
 
 eofTokenizer :: MonadError String m => Tokenizer m ()
 eofTokenizer = do
-    str <- get
+    c <- read
+    if isEOF c
+      then store
+      else return ()
+    str <- flush
     if validate str
       then yield EOF
       else throwError $ "invalid end of file: " <> str
-    put []
   where validate :: [Char] -> Bool
-        validate ('\0':[]) = True
+        validate (x:[]) = isEOF x
         validate _ = False
 
 isOperator :: Char -> Bool
@@ -217,6 +239,5 @@ isWhiteSpace = \case
     _ -> False
 
 isEOF :: Char -> Bool
-isEOF = \case
-    '\0' -> True
-    _ -> False
+isEOF c | c == Types.eof = True
+        | otherwise = False

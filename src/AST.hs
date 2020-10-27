@@ -8,16 +8,20 @@ module AST (
     build
 ) where
 
+import Prelude hiding (read)
 import Pipes (Consumer)
 import Control.Monad.State
 import Control.Monad.Except
 
-import PipesClass
+import Types (ValueType)
+import qualified Types
+import Crawler ( CrawlState(..), MonadCrawl(..) )
+import PipesClass ( MonadConsumer )
 import Token (Token)
 import qualified Token (Token(..), OpType(..), PrType(..))
 
-data TermAttr = Label String | Value Float deriving Show
-data NodeAttr = Operator (Float -> Float -> Float) | Assigner | Sequence
+data TermAttr = Label String | Value ValueType deriving Show
+data NodeAttr = Operator (ValueType -> ValueType -> ValueType) | Assigner | Sequence
 data AST = Node NodeAttr AST AST | Term TermAttr deriving Show
 
 instance Show NodeAttr where
@@ -25,36 +29,22 @@ instance Show NodeAttr where
     show Assigner = "Assigner"
     show Sequence = "Sequence"
 
-newtype Builder m a = Builder (StateT [Token] (Consumer Token m) a)
+newtype Builder m a = Builder (StateT (CrawlState Token) (Consumer Token m) a)
     deriving (
         Functor,
         Applicative,
         Monad,
-        MonadState [Token],
+        MonadState (CrawlState Token),
         MonadError e,
-        MonadConsumer Token
+        MonadConsumer Token,
+        MonadCrawl Token
     )
 
 build :: MonadError String m => Consumer Token m AST
 build = do
     let Builder s = builder
-    a <- evalStateT s []
+    a <- evalStateT s $ CrawlState [] []
     return a
-
-next :: Monad m => Builder m Token
-next = do
-    ls <- get
-    case ls of
-        (x:xs) -> do
-            put xs
-            return x
-        [] -> do
-            x <- await
-            modify (x:)
-            return x
-
-flush :: Monad m => Builder m ()
-flush = put []
 
 notExpectedMsg :: Token -> Token -> String
 notExpectedMsg e a = "expected " <> show e <> " but given " <> show a
@@ -62,22 +52,24 @@ notExpectedMsg e a = "expected " <> show e <> " but given " <> show a
 builder :: MonadError String m => Builder m AST
 builder = do
     a <- cmdBuilder
-    x <- next
+    x <- read
     case x of
-        Token.EOF -> return a
+        Token.EOF -> do
+            skip
+            return a
         _ -> throwError $ notExpectedMsg Token.EOF x
 
 cmdBuilder :: MonadError String m => Builder m AST
 cmdBuilder = do
     lh <- expr0Builder
-    x <- next
+    x <- read
     case x of
         Token.Separator -> do
-            flush
-            y <- next
+            skip
+            y <- read
             case y of
                 Token.EOF -> do
-                    flush
+                    skip
                     return lh
                 _ -> do
                     rh <- cmdBuilder
@@ -85,14 +77,14 @@ cmdBuilder = do
 
 expr0Builder :: MonadError String m => Builder m AST
 expr0Builder = do
-    x <- next
+    x <- read
     case x of
         Token.Label l -> do
-            flush
-            y <- next
+            skip
+            y <- read
             case y of
                 Token.Assigner -> do
-                    flush
+                    skip
                     let lh = Term $ Label l
                     rh <- expr1Builder
                     return $ Node Assigner lh rh
@@ -102,49 +94,49 @@ expr0Builder = do
 expr1Builder :: MonadError String m => Builder m AST
 expr1Builder = do
     lh <- expr2Builder
-    x <- next
+    x <- read
     case x of
         Token.Operator Token.Add -> do
-            flush
+            skip
             rh <- expr1Builder
-            return $ Node (Operator (+)) lh rh
+            return $ Node (Operator Types.add) lh rh
         Token.Operator Token.Sub -> do
-            flush
+            skip
             rh <- expr1Builder
-            return $ Node (Operator (-)) lh rh
+            return $ Node (Operator Types.sub) lh rh
         _ -> return lh
 
 expr2Builder :: MonadError String m => Builder m AST
 expr2Builder = do
     lh <- expr3Builder
-    x <- next
+    x <- read
     case x of
         Token.Operator Token.Mul -> do
-            flush
+            skip
             rh <- expr2Builder
-            return $ Node (Operator (*)) lh rh
+            return $ Node (Operator Types.mul) lh rh
         Token.Operator Token.Div -> do
-            flush
+            skip
             rh <- expr2Builder
-            return $ Node (Operator (/)) lh rh
+            return $ Node (Operator Types.div) lh rh
         _ -> return lh
 
 expr3Builder :: MonadError String m => Builder m AST
 expr3Builder = do
-    x <- next
+    x <- read
     case x of
         Token.Parentheses Token.Open -> do
-            flush
+            skip
             mh <- cmdBuilder
             y <- next
             case y of
                 Token.Parentheses Token.Close -> do
-                    flush
+                    skip
                     return mh
                 _ -> throwError $ notExpectedMsg (Token.Parentheses Token.Close) y
         Token.Label l -> do
-            flush
+            skip
             return $ Term (Label l)
         Token.Value v -> do
-            flush
+            skip
             return $ Term (Value v)

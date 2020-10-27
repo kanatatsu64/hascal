@@ -10,9 +10,10 @@ import Control.Monad.State
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+import Types (ValueType)
 import AST
 
-type Table = Map String Float
+type Table = Map String ValueType
 newtype Eval m a = Eval (StateT Table m a)
     deriving (
         Functor,
@@ -22,15 +23,15 @@ newtype Eval m a = Eval (StateT Table m a)
         MonadError e
     )
 
-eval :: MonadError String m => Table -> AST -> m Float
+eval :: MonadError String m => Table -> AST -> m ValueType
 eval t a = let Eval s = evaluator a
            in evalStateT s t
 
-evaluator :: MonadError String m => AST -> Eval m Float
+evaluator :: MonadError String m => AST -> Eval m ValueType
 evaluator n@(Node _ _ _) = nodeEvaluator n
 evaluator t@(Term _) = termEvaluator t
 
-nodeEvaluator :: MonadError String m => AST -> Eval m Float
+nodeEvaluator :: MonadError String m => AST -> Eval m ValueType
 nodeEvaluator (Node a l r) = do
     case a of
         Operator f -> do
@@ -50,7 +51,7 @@ nodeEvaluator (Node a l r) = do
             return v
 nodeEvaluator (Term _) = throwError $ "expected Node but given Term"
 
-termEvaluator :: MonadError String m => AST -> Eval m Float
+termEvaluator :: MonadError String m => AST -> Eval m ValueType
 termEvaluator (Term a) = do
     case a of
         Label l -> do

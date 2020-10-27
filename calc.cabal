@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: cb5716cdc40a07fda5262bc1edc83be6f851250e9e683228db7041d919911984
+-- hash: 448a3d6a1438dcc6dff7a037d4a81b5c4fed7b485a29e12895a5ca6f4f8fe63f
 
 name:           calc
 version:        0.1.0.0
@@ -28,9 +28,11 @@ source-repository head
 library
   exposed-modules:
       AST
+      Crawler
       Eval
       PipesClass
       Token
+      Types
   other-modules:
       Paths_calc
   hs-source-dirs:
