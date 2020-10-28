@@ -26,6 +26,7 @@ class Monad m => MonadCrawl a m | m -> a where
     flush :: m [a]
     skip :: m ()
     reset :: m ()
+    restore :: m ()
 
     skip = void next
     reset = void flush
@@ -61,7 +62,7 @@ instance (MonadConsumer a m) => MonadCrawl a (StateT (CrawlState a) m) where
                 x <- await
                 liftBuffer $ put [x]
                 return x
-
+    
     store = do
         c <- next
         liftStorage $ modify (c:)
@@ -69,4 +70,9 @@ instance (MonadConsumer a m) => MonadCrawl a (StateT (CrawlState a) m) where
     flush = do
         ls <- liftStorage $ get
         liftStorage $ put []
-        return ls
+        return $ reverse ls
+
+    restore = do
+        ls <- flush
+        bs <- liftBuffer $ get
+        liftBuffer $ put $ ls ++ reverse bs

@@ -56,7 +56,6 @@ builder = do
     x <- read
     case x of
         Token.EOF -> do
-            skip
             return a
         _ -> throwError $ notExpectedMsg Token.EOF x
 
@@ -70,7 +69,6 @@ cmdBuilder = do
             y <- read
             case y of
                 Token.EOF -> do
-                    skip
                     return lh
                 _ -> do
                     rh <- cmdBuilder
@@ -82,15 +80,17 @@ expr0Builder = do
     x <- read
     case x of
         Token.Label l -> do
-            skip
+            store
             y <- read
             case y of
                 Token.Assigner -> do
-                    skip
+                    flush >> skip
                     let lh = Term $ Label l
                     rh <- expr1Builder
                     return $ Node Assigner lh rh
-                _ -> expr1Builder
+                _ -> do
+                    restore
+                    expr1Builder
         _ -> expr1Builder
 
 expr1Builder :: MonadError String m => Builder m AST
@@ -130,7 +130,7 @@ expr3Builder = do
         Token.Parentheses Token.Open -> do
             skip
             mh <- cmdBuilder
-            y <- next
+            y <- read
             case y of
                 Token.Parentheses Token.Close -> do
                     skip
@@ -142,3 +142,4 @@ expr3Builder = do
         Token.Value v -> do
             skip
             return $ Term (Value v)
+        _ -> throwError $ "unexpected token: " <> show x
