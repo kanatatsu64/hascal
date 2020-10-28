@@ -10,7 +10,7 @@ module Main where
     Expr3 := (Cmd) | <Label> | <Value>
 
     <Label> :: String (a-z A-Z)
-    <Value> :: Float
+    <Value> :: Int
 
     > var = 10 + (20 + 30) * 4 ; var + 12
     222

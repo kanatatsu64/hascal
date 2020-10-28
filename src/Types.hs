@@ -10,7 +10,7 @@ module Types (
 
 import Prelude hiding ( div )
 
-type ValueType = Float
+type ValueType = Int
 type TargetType = ValueType
 
 eof :: Char
@@ -26,4 +26,4 @@ mul :: ValueType -> ValueType -> ValueType
 mul = (*)
 
 div :: ValueType -> ValueType -> ValueType
-div = (/)
+div = quot

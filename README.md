@@ -9,8 +9,11 @@ Expr1 := Expr2 + Expr1 | Expr2 - Expr1 | Expr2
 Expr2 := Expr3 * Expr2 | Expr3 / Expr2 | Expr3
 Expr3 := (Cmd) | <Label> | <Value>
 
-<Label> :: String
-<Value> :: Float
+<Label> :: String (a-z A-Z)
+<Value> :: Int
+
+> var = 10 + (20 + 30) * 4 ; var + 12
+222
 ```
 
 ```shell:example
